@@ -1,7 +1,0 @@
-Place your exported architecture diagram here.
-
-Export your Excalidraw or draw.io diagram as:
-  - architecture.png  (preferred for GitHub preview)
-  - or architecture.pdf
-
-Then delete this file.
