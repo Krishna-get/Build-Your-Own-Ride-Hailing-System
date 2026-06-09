@@ -4,15 +4,15 @@
 
 ## How many nodes did A* explore vs Dijkstra on your city query?
 
-A* explored: 843  
-Dijkstra explored: 4,217  
-Saving: 80%
+A* explored: 2,530  
+Dijkstra explored: 28,556  
+Saving: 91%
 
 ---
 
 ## In your own words: why did A* explore fewer nodes?
 
-Dijkstra behaves as an uninformed search, expanding blindly in an evenly distributed circular wave pattern in all directions from the starting point. A* incorporates the Haversine formula as a heuristic to project the remaining straight-line distance to the target, prioritizing nodes that lead directly toward the goal. This limits the exploration scope to a highly focused corridor pointed toward the final destination, avoiding hundreds of irrelevant roads heading away from it.
+Dijkstra behaves as an uninformed search, expanding blindly in an evenly distributed circular wave pattern in all directions from the starting point. A* incorporates the Haversine formula as a heuristic to project the remaining straight-line distance to the target, prioritizing nodes that lead directly toward the goal. This limits the exploration scope to a highly focused corridor pointed toward the final destination, avoiding thousands of irrelevant roads heading away from it.
 
 ---
 
@@ -42,7 +42,7 @@ This connects directly to the **Map / Routing Service** defined in our initial s
 
 ## Time spent this week
 
-1 hour
+1 hours
 
 ---
 
