@@ -17,8 +17,14 @@ import sys
 
 import osmnx as ox
 
-sys.path.insert(0, "../starter")
-from points import ORIGIN_LAT, ORIGIN_LNG, DEST_LAT, DEST_LNG, LABEL
+# sys.path.insert(0, "../starter")
+from starter.points import (
+    ORIGIN_LAT,
+    ORIGIN_LNG,
+    DEST_LAT,
+    DEST_LNG,
+    LABEL,
+)
 
 os.makedirs("output", exist_ok=True)
 
