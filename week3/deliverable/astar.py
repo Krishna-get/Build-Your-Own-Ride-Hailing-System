@@ -8,14 +8,6 @@ Rules:
   - Implement haversine() yourself (no geopy, no haversine library)
   - Implement astar() yourself (no nx.astar_path, no ox.shortest_path)
   - You MAY use: osmnx, heapq, math, matplotlib or folium for visualisation
-
-Your implementation must:
-  1. Download the road graph for your chosen city (from starter/points.py)
-  2. Snap origin and destination lat/lng to the nearest graph nodes
-  3. Run A* and return the path + total distance + nodes explored count
-  4. Run your Week 2 Dijkstra on the same query (adapted for OSMnx graph)
-  5. Print a comparison table
-  6. Visualise the A* route on a map and save it
 """
 
 import heapq
@@ -39,8 +31,20 @@ def haversine(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     Implement this from scratch using the formula in resources/haversine-explainer.md
     Do NOT use any library for this.
     """
-    # --- your code here ---
-    pass
+    R = 6371000.0  # Earth's mean radius in metres
+
+    # Convert decimal degrees to radians
+    phi1 = math.radians(lat1)
+    phi2 = math.radians(lat2)
+    delta_phi = math.radians(lat2 - lat1)
+    delta_lambda = math.radians(lon2 - lon1)
+
+    # Apply the Haversine formula
+    a = (math.sin(delta_phi / 2.0) ** 2 +
+         math.cos(phi1) * math.cos(phi2) * math.sin(delta_lambda / 2.0) ** 2)
+    c = 2.0 * math.atan2(math.sqrt(a), math.sqrt(1.0 - a))
+
+    return R * c
 
 
 # ── A* implementation ─────────────────────────────────────────────────────────
@@ -49,35 +53,64 @@ def astar(G, origin_node: int, dest_node: int) -> tuple[list, float, int]:
     """
     Run A* on the OSMnx graph G from origin_node to dest_node.
     Use haversine() as the heuristic (straight-line distance to destination).
-
-    Args:
-        G:            OSMnx MultiDiGraph
-        origin_node:  integer node ID (from ox.nearest_nodes)
-        dest_node:    integer node ID
-
-    Returns:
-        path:          list of node IDs from origin to destination
-        distance:      total path length in metres
-        nodes_explored: how many nodes were popped from the heap
-
-    Hints:
-        - G.nodes[n]['y'] = latitude of node n
-        - G.nodes[n]['x'] = longitude of node n
-        - Edge weight: min(d['length'] for d in G[u][v].values())
-        - Priority = g(n) + h(n)  where h = haversine(node, dest)
-        - Track a `previous` dict to reconstruct the path
-        - Track `nodes_explored` by incrementing each time you pop from the heap
-          and process a node (i.e. not already visited)
     """
     dest_lat = G.nodes[dest_node]['y']
     dest_lon = G.nodes[dest_node]['x']
 
-    # --- your code here ---
+    # Open set tracking: (f_score, current_node)
+    min_heap = [(haversine(G.nodes[origin_node]['y'], G.nodes[origin_node]['x'], dest_lat, dest_lon), origin_node)]
+    
+    # Cost records
+    g_score = {node: float("inf") for node in G.nodes}
+    g_score[origin_node] = 0.0
 
-    path = []
-    distance = 0.0
+    previous = {}
+    visited = set()
     nodes_explored = 0
 
+    while min_heap:
+        current_f, current_node = heapq.heappop(min_heap)
+
+        if current_node in visited:
+            continue
+
+        visited.add(current_node)
+        nodes_explored += 1
+
+        # Target reached early
+        if current_node == dest_node:
+            break
+
+        # Explore successors (OSMnx MultiDiGraph uses successors for directed edges)
+        for neighbour in G.successors(current_node):
+            if neighbour in visited:
+                continue
+
+            # MultiDiGraph could have parallel paths, grab the absolute minimum distance edge
+            edge_weight = min(d['length'] for d in G[current_node][neighbour].values())
+            tentative_g = g_score[current_node] + edge_weight
+
+            if tentative_g < g_score[neighbour]:
+                g_score[neighbour] = tentative_g
+                previous[neighbour] = current_node
+                
+                # Compute total cost f(n) = g(n) + h(n)
+                h_score = haversine(G.nodes[neighbour]['y'], G.nodes[neighbour]['x'], dest_lat, dest_lon)
+                f_score = tentative_g + h_score
+                
+                heapq.heappush(min_heap, (f_score, neighbour))
+
+    # Path reconstruction
+    path = []
+    if dest_node in previous or origin_node == dest_node:
+        curr = dest_node
+        while curr in previous:
+            path.append(curr)
+            curr = previous[curr]
+        path.append(origin_node)
+        path.reverse()
+
+    distance = g_score[dest_node] if g_score[dest_node] != float("inf") else 0.0
     return path, distance, nodes_explored
 
 
@@ -87,17 +120,52 @@ def dijkstra(G, origin_node: int, dest_node: int) -> tuple[list, float, int]:
     """
     Run Dijkstra on the same OSMnx graph.
     Same interface as astar() — returns (path, distance, nodes_explored).
-
-    This is the same algorithm as Week 2 but adapted for:
-      - OSMnx MultiDiGraph instead of a plain adjacency list
-      - Stopping early when dest_node is reached (no need to explore the whole graph)
     """
-    # --- your code here ---
+    min_heap = [(0.0, origin_node)]
+    
+    distances = {node: float("inf") for node in G.nodes}
+    distances[origin_node] = 0.0
 
-    path = []
-    distance = 0.0
+    previous = {}
+    visited = set()
     nodes_explored = 0
 
+    while min_heap:
+        current_dist, current_node = heapq.heappop(min_heap)
+
+        if current_node in visited:
+            continue
+
+        visited.add(current_node)
+        nodes_explored += 1
+
+        # Early termination when target node is reached
+        if current_node == dest_node:
+            break
+
+        for neighbour in G.successors(current_node):
+            if neighbour in visited:
+                continue
+
+            edge_weight = min(d['length'] for d in G[current_node][neighbour].values())
+            new_dist = current_dist + edge_weight
+
+            if new_dist < distances[neighbour]:
+                distances[neighbour] = new_dist
+                previous[neighbour] = current_node
+                heapq.heappush(min_heap, (new_dist, neighbour))
+
+    # Path reconstruction
+    path = []
+    if dest_node in previous or origin_node == dest_node:
+        curr = dest_node
+        while curr in previous:
+            path.append(curr)
+            curr = previous[curr]
+        path.append(origin_node)
+        path.reverse()
+
+    distance = distances[dest_node] if distances[dest_node] != float("inf") else 0.0
     return path, distance, nodes_explored
 
 
@@ -107,16 +175,22 @@ def visualise_route(G, path: list, filename: str = "output/route_map.html"):
     """
     Plot the route on an interactive map using folium and save as HTML.
     If folium is not installed, fall back to a static matplotlib plot.
-
-    Hint for folium:
-        import folium
-        m = folium.Map(location=[origin_lat, origin_lng], zoom_start=14)
-        folium.PolyLine([(G.nodes[n]['y'], G.nodes[n]['x']) for n in path]).add_to(m)
-        m.save(filename)
     """
     try:
         import folium
-        # --- your code here ---
+        # Center point from origin coordinates
+        start_coord = (G.nodes[path[0]]['y'], G.nodes[path[0]]['x'])
+        m = folium.Map(location=start_coord, zoom_start=14, tiles="cartodbpositron")
+        
+        # Build list of points for polyline mapping
+        route_points = [(G.nodes[n]['y'], G.nodes[n]['x']) for n in path]
+        folium.PolyLine(route_points, color="#4885ed", weight=5, opacity=0.8).add_to(m)
+        
+        # Add quick origin/destination markers
+        folium.Marker(location=route_points[0], popup="Origin", icon=folium.Icon(color='green')).add_to(m)
+        folium.Marker(location=route_points[-1], popup="Destination", icon=folium.Icon(color='red')).add_to(m)
+        
+        m.save(filename)
         print(f"Interactive map saved to: {filename}")
     except ImportError:
         # fallback: matplotlib static plot
