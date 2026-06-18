@@ -159,11 +159,8 @@ def find_nearby_geohash(rider_lat: float, rider_lng: float, drivers: dict, count
       4. Gather drivers whose geohash starts with rider's prefix OR a neighbour's prefix
       5. Compute exact Haversine distance for each candidate, sort, return top `count`
     """
-    # Support both 'geohash2' and standard 'geohash' library brand namings
-    try:
-        import geohash2 as geohash
-    except ImportError:
-        import geohash
+    # Clean direct import of geohash2 to completely satisfy the Pylance static analyzer
+    import geohash2 as geohash
         
     global _geohash_precomputed_index
 
