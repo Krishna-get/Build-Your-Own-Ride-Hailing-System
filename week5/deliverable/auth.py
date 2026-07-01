@@ -54,8 +54,14 @@ def create_access_token(user_id: str, role: str) -> str:
       3. Encode with jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
       4. Return the encoded token string
     """
-    # --- your code here ---
-    pass
+    expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    payload = {
+        "sub": str(user_id),
+        "role": role,
+        "exp": expire
+    }
+    encoded_jwt = jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
 
 
 # ── Token verification ──────────────────────────────────────────────────────────
@@ -68,8 +74,7 @@ def decode_token(token: str) -> dict:
       Use jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
       and return the resulting payload dict.
     """
-    # --- your code here ---
-    pass
+    return jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
 
 
 def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
@@ -83,12 +88,21 @@ def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
       2. If it raises JWTError, raise HTTPException(401, "Not authenticated")
       3. Return the decoded payload
     """
-    # --- your code here ---
-    raise HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Not authenticated",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
+    try:
+        payload = decode_token(token)
+        if payload.get("sub") is None or payload.get("role") is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Not authenticated",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        return payload
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
 
 def require_role(required_role: str):
@@ -109,7 +123,11 @@ def require_role(required_role: str):
         4. Otherwise return the payload
     """
     def checker(current_user: dict = Depends(get_current_user)) -> dict:
-        # --- your code here ---
+        if current_user.get("role") != required_role:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Forbidden"
+            )
         return current_user
 
     return checker
