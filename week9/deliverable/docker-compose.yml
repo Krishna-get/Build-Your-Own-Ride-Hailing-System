@@ -1,0 +1,74 @@
+version: '3.8'
+
+services:
+  # ── Relational Database Stateful Layer ──────────────────────────────────────
+  postgres:
+    image: postgres:15-alpine
+    container_name: ridehailing_postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: production_secure_pass_123
+      POSTGRES_DB: ridehailing
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - ridehailing_network
+    restart: always
+
+  # ── Ephemeral Geospatial & Pub/Sub Layer ────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: ridehailing_redis
+    ports:
+      - "6379:6379"
+    networks:
+      - ridehailing_network
+    restart: always
+
+  # ── Scalable WebSocket Gateway (Server 1) ───────────────────────────────────
+  websocket_server_1:
+    image: python:3.11-alpine
+    container_name: ridehailing_ws_gateway_1
+    ports:
+      - "8000:8000"
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=postgresql://postgres:production_secure_pass_123@postgres:5432/ridehailing
+    volumes:
+      - ../../week6/deliverable:/app
+    working_dir: /app
+    command: sh -c "pip install fastapi[standard] redis websockets && uvicorn server:app --host 0.0.0.0 --port 8000"
+    depends_on:
+      - redis
+      - postgres
+    networks:
+      - ridehailing_network
+
+  # ── Scalable WebSocket Gateway (Server 2) ───────────────────────────────────
+  websocket_server_2:
+    image: python:3.11-alpine
+    container_name: ridehailing_ws_gateway_2
+    ports:
+      - "8001:8001"
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=postgresql://postgres:production_secure_pass_123@postgres:5432/ridehailing
+    volumes:
+      - ../../week6/deliverable:/app
+    working_dir: /app
+    command: sh -c "pip install fastapi[standard] redis websockets && uvicorn server:app --host 0.0.0.0 --port 8001"
+    depends_on:
+      - redis
+      - postgres
+    networks:
+      - ridehailing_network
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  ridehailing_network:
+    driver: bridge
